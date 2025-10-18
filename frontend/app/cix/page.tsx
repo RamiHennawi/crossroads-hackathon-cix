@@ -55,7 +55,7 @@ const gameData: GameData = {
     { "row": 10, "col": 4, "word": "x", is_given: true },
   ],
   "connections": [
-    { "from_cell": [6, 2], "to_cell": [6, 3], "connection": "dasa"},
+    { "from_cell": [6, 2], "to_cell": [6, 3], "connection": "dada"},
     { "from_cell": [6, 3], "to_cell": [6, 4], "connection": "dasa"},
     { "from_cell": [6, 4], "to_cell": [6, 5], "connection": "dasa"},
     { "from_cell": [6, 5], "to_cell": [6, 6], "connection": "dasa"},
@@ -65,7 +65,7 @@ const gameData: GameData = {
     { "from_cell": [4, 6], "to_cell": [5, 6], "connection": "dasa"},
     { "from_cell": [5, 6], "to_cell": [6, 6], "connection": "dasa"},
     { "from_cell": [6, 6], "to_cell": [7, 6], "connection": "dasa"},
-    { "from_cell": [3, 5], "to_cell": [3, 6], "connection": "dasa"},
+    { "from_cell": [3, 5], "to_cell": [3, 6], "connection": "fukhfisoHFOISFSAF"},
     { "from_cell": [3, 6], "to_cell": [3, 7], "connection": "dasa"},
     { "from_cell": [3, 7], "to_cell": [3, 8], "connection": "dasa"},
     { "from_cell": [3, 8], "to_cell": [3, 9], "connection": "dasa"},
@@ -161,7 +161,7 @@ export default function CixGame() {
   };
 
   // Cell size in pixels for the large grid
-  const cellSize = 150;
+  const cellSize = 300;
   const nodeRadius = cellSize * 0.3; // Increased from 0.25 to 0.3
   const gridWidth = gameData.cols * cellSize;
   const gridHeight = gameData.rows * cellSize;
@@ -202,21 +202,21 @@ export default function CixGame() {
             <div className="fixed top-6 left-6 flex flex-col gap-2 z-20 pointer-events-none">
               <button
                 onClick={() => zoomIn()}
-                className="w-10 h-10 bg-transparent border-2 border-gray-300 rounded-lg hover:bg-gray-100 transition-colors shadow-lg flex items-center justify-center text-xl font-bold pointer-events-auto"
+                className="w-10 h-10 bg-transparent border-2 border-gray-300 rounded-lg transition-colors shadow-lg flex items-center justify-center text-xl font-bold pointer-events-auto cursor-pointer"
                 title="Zoom In (or use Scroll Wheel)"
               >
                 +
               </button>
               <button
                 onClick={() => zoomOut()}
-                className="w-10 h-10 bg-transparent border-2 border-gray-300 rounded-lg hover:bg-gray-100 transition-colors shadow-lg flex items-center justify-center text-xl font-bold pointer-events-auto"
+                className="w-10 h-10 bg-transparent border-2 border-gray-300 rounded-lg transition-colors shadow-lg flex items-center justify-center text-xl font-bold pointer-events-auto cursor-pointer"
                 title="Zoom Out (or use Scroll Wheel)"
               >
                 −
               </button>
               <button
                 onClick={() => resetTransform()}
-                className="w-10 h-10 bg-transparent border-2 border-gray-300 rounded-lg hover:bg-gray-100 transition-colors shadow-lg flex items-center justify-center text-sm pointer-events-auto"
+                className="w-10 h-10 bg-transparent border-2 border-gray-300 rounded-lg transition-colors shadow-lg flex items-center justify-center text-sm pointer-events-auto cursor-pointer"
                 title="Reset Zoom & Position"
               >
                 ⟲
@@ -232,7 +232,7 @@ export default function CixGame() {
             {/* Hover Info - Above search field */}
             {hoverInfo && (
               <div className="fixed bottom-44 right-6 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-sm text-white shadow-lg pointer-events-none z-20">
-                <span className="font-semibold text-blue-400">{hoverInfo.type === 'node' ? 'Node' : 'Connection'}:</span> {hoverInfo.value}
+                <span className="font-semibold text-emerald-400">{hoverInfo.type === 'node' ? 'Node' : 'Connection'}:</span> {hoverInfo.value}
               </div>
             )}
 
@@ -247,6 +247,16 @@ export default function CixGame() {
                   style={{ width: `${gridWidth}px`, height: `${gridHeight}px` }}
                 >
                   <svg width={gridWidth} height={gridHeight} className="absolute inset-0">
+                    {/* Define holographic glow filter */}
+                    <defs>
+                      <filter id="holographicGlow" x="-50%" y="-50%" width="200%" height="200%">
+                        <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+                        <feMerge>
+                          <feMergeNode in="coloredBlur"/>
+                          <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                      </filter>
+                    </defs>
                     {/* Draw connections */}
                     {gameData.connections.map((conn, idx) => {
                       const [fromRow, fromCol] = conn.from_cell;
@@ -277,8 +287,8 @@ export default function CixGame() {
                       const isVertical = fromCol === toCol;
                       
                       // For vertical connections, offset text to the right
-                      const textX = isVertical ? midX + 35 : midX;
-                      const textY = midY - 5;
+                      const textX = isVertical ? midX + 15 : midX;
+                      const textY = isVertical ? midY + 5 : midY - 10;
                       
                       return (
                         <g key={idx}>
@@ -288,9 +298,9 @@ export default function CixGame() {
                             x2={x2}
                             y2={y2}
                             stroke="white"
-                            strokeWidth="3"
+                            strokeWidth="6"
                             opacity={active ? 1 : 0.2}
-                            className={active ? "hover:stroke-blue-400 transition-colors cursor-pointer" : ""}
+                            className={active ? "hover:stroke-emerald-400 transition-colors cursor-pointer" : ""}
                             onMouseEnter={() => active && setHoverInfo({ type: 'connection', value: conn.connection })}
                             onMouseLeave={() => setHoverInfo(null)}
                           />
@@ -299,11 +309,12 @@ export default function CixGame() {
                               x={textX}
                               y={textY}
                               textAnchor={isVertical ? "start" : "middle"}
-                              fontSize="13"
-                              fill="#9ca3af"
+                              fontSize="16"
+                              fill="#fff"
                               className="pointer-events-none select-none font-medium"
                             >
-                              {conn.connection}
+                              {conn.connection.slice(0, 10)}
+                              {conn.connection.length > 15 && '...'}
                             </text>
                           )}
                         </g>
@@ -323,13 +334,14 @@ export default function CixGame() {
                             cx={(cell.col + 0.5) * cellSize}
                             cy={(cell.row + 0.5) * cellSize}
                             r={nodeRadius}
-                            fill={isSelected ? '#3b82f6' : 'black'}
-                            stroke="white"
-                            strokeWidth={given ? 5 : 2}
+                            fill={isSelected ? 'rgba(16, 185, 129, 0.2)' : (given ? 'rgba(16, 185, 129, 0.1)' : 'black')}
+                            stroke={given ? '#10b981' : 'white'}
+                            strokeWidth={5}
                             opacity={active ? 1 : 0.2}
-                            className={active ? "cursor-pointer hover:fill-gray-900 transition-colors" : ""}
+                            filter={given ? 'url(#holographicGlow)' : undefined}
+                            className={active && !given ? "cursor-pointer hover:fill-emerald-900 transition-colors" : given ? "" : ""}
                             onClick={() => handleCellClick(cell.row, cell.col)}
-                            onMouseEnter={() => active && setHoverInfo({ type: 'node', value: word || '???' })}
+                            onMouseEnter={() => active && !given && setHoverInfo({ type: 'node', value: word || '???' })}
                             onMouseLeave={() => setHoverInfo(null)}
                           />
                           {word && (
@@ -337,11 +349,12 @@ export default function CixGame() {
                               x={(cell.col + 0.5) * cellSize}
                               y={(cell.row + 0.5) * cellSize + 6}
                               textAnchor="middle"
-                              fontSize="17"
+                              fontSize="20"
                               fill="white"
                               className="pointer-events-none select-none font-semibold"
                             >
-                              {word}
+                              {word.slice(0, 12)}
+                              {word.length > 12 && '...'}
                             </text>
                           )}
                         </g>
@@ -355,12 +368,9 @@ export default function CixGame() {
             {/* Sticky Controls at Bottom Right */}
             <div className="fixed bottom-6 right-6 flex flex-col gap-4 w-96 z-20 pointer-events-none">
               {/* Input Field */}
-              <div className="bg-gray-900 border-2 border-gray-700 shadow-lg p-4 rounded-lg pointer-events-auto">
+              <div className="bg-black-900 border-2 border-gray-700 shadow-lg p-4 rounded-lg pointer-events-auto">
                 {selectedCell ? (
                   <div className="flex flex-col gap-2">
-                    <div className="text-xs text-gray-400">
-                      Cell ({selectedCell.row}, {selectedCell.col}) - {isGiven(selectedCell.row, selectedCell.col) ? 'Given (locked)' : 'Enter your guess'}
-                    </div>
                     <div className="flex gap-2">
                       <input
                         type="text"
@@ -369,19 +379,19 @@ export default function CixGame() {
                         onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                         placeholder="Type your guess..."
                         disabled={isGiven(selectedCell.row, selectedCell.col)}
-                        className="flex-1 px-4 py-2 bg-black border border-gray-700 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                        className="flex-1 px-4 py-2 bg-black border border-gray-700 rounded text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
                       />
                       <button
                         onClick={handleSend}
                         disabled={isGiven(selectedCell.row, selectedCell.col)}
-                        className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-6 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         →
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="text-center text-gray-500 py-2">
+                  <div className="text-center text-white-500 py-2">
                     Click on an active node to guess
                   </div>
                 )}
@@ -389,13 +399,19 @@ export default function CixGame() {
 
               {/* Buttons */}
               <div className="flex gap-3 pointer-events-auto">
-                <button className="flex-1 px-4 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors shadow-lg border border-gray-700">
+                <button
+                  className="flex-1 px-4 py-3 bg-black text-white rounded-lg transition-all duration-150 shadow-lg border border-gray-700 cursor-pointer transform hover:scale-105 hover:bg-[#181a1b] hover:opacity-90"
+                >
                   Hint
                 </button>
-                <button className="flex-1 px-4 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors shadow-lg border border-gray-700">
+                <button
+                  className="flex-1 px-4 py-3 bg-black text-white rounded-lg transition-all duration-150 shadow-lg border border-gray-700 cursor-pointer transform hover:scale-105 hover:bg-[#181a1b] hover:opacity-90"
+                >
                   Clear
                 </button>
-                <button className="flex-1 px-4 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors shadow-lg border border-gray-700">
+                <button
+                  className="flex-1 px-4 py-3 bg-black text-white rounded-lg transition-all duration-150 shadow-lg border border-gray-700 cursor-pointer transform hover:scale-105 hover:bg-[#181a1b] hover:opacity-90"
+                >
                   Submit
                 </button>
               </div>
