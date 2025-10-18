@@ -7,6 +7,7 @@ class Cell(BaseModel):
     row: int
     col: int
     word: Optional[str] = None
+    is_given: bool = False
 
 
 class ConnectionBetweenCells(BaseModel):

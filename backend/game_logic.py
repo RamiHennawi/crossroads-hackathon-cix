@@ -108,6 +108,9 @@ class BoardGenerator:
                         word=chain['words'][idx],
                     )
         
+        # Mark given cells: one per chain + two additional
+        self._mark_given_cells(cells_dict, chains)
+        
         for chain in chains:
             for i in range(len(chain['positions']) - 1):
                 from_pos = chain['positions'][i]
@@ -198,6 +201,9 @@ class BoardGenerator:
                         word=chain['words'][idx],
                     )
         
+        # Mark given cells: one per chain + two additional
+        self._mark_given_cells(cells_dict, chains)
+        
         for chain in chains:
             for i in range(len(chain['positions']) - 1):
                 from_pos = chain['positions'][i]
@@ -216,6 +222,35 @@ class BoardGenerator:
             connections=all_connections,
             category=category
         )
+    
+    def _mark_given_cells(
+        self,
+        cells_dict: dict,
+        chains: List[dict]
+    ) -> None:
+        """Mark cells as given: one per chain + two additional"""
+        given_positions = set()
+        
+        # Select one random cell from each chain
+        for chain in chains:
+            random_pos = random.choice(chain['positions'])
+            given_positions.add(random_pos)
+        
+        # Select two additional random cells from all cells
+        all_positions = list(cells_dict.keys())
+        # Filter out already selected positions
+        available_positions = [pos for pos in all_positions if pos not in given_positions]
+        
+        # Select up to 2 additional cells (if available)
+        num_additional = min(2, len(available_positions))
+        if num_additional > 0:
+            additional_positions = random.sample(available_positions, num_additional)
+            given_positions.update(additional_positions)
+        
+        # Mark all selected cells as given
+        for pos in given_positions:
+            if pos in cells_dict:
+                cells_dict[pos].is_given = True
     
     def _generate_first_chain(
         self,

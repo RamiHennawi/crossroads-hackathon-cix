@@ -8,7 +8,6 @@ from models import (
 )
 from game_logic import BoardGenerator
 from connection_validator import ConnectionValidator
-from chain_templates import get_all_templates
 
 load_dotenv()
 
