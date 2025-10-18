@@ -1,0 +1,427 @@
+import random
+from typing import List, Optional, Tuple, Set
+from openai import OpenAI
+import os
+from models import (Cell, ConnectionBetweenCells, GameBoard)
+from chain_templates import get_template_by_chain_count
+
+
+class BoardGenerator:
+    """Generates word chain puzzle boards"""
+    
+    def __init__(self):
+        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        
+    def generate_board(
+        self, 
+        num_chains: int = 5, 
+        grid_size: int = 15,
+        connection_types: Optional[List[str]] = None,
+        category: Optional[str] = None,
+        use_templates: Optional[bool] = False,
+    ) -> GameBoard:
+        """Generate a game board with word chains"""
+        if use_templates:
+            return self._generate_board_from_template(num_chains, connection_types, category, grid_size)
+        else:
+            return self._generate_board_random(num_chains, connection_types, category, grid_size)
+    
+    def _generate_board_from_template(
+        self,
+        num_chains: int,
+        connection_types: Optional[List[str]],
+        category: Optional[str],
+        grid_size: int
+    ) -> GameBoard:
+        """Generate a board using a layout template"""
+        template = get_template_by_chain_count(num_chains)
+        
+        if not template:
+            print(f"No template found for {num_chains} chains, using random generation")
+            return self._generate_board_random(num_chains, connection_types, category, grid_size)
+        
+        print(f"Using template: {template['name']}")
+        
+        chains = []
+        occupied_cells: Set[Tuple[int, int]] = set()
+        all_connections = []
+        
+        # Process each chain in the template
+        for chain_idx, chain_config in enumerate(template['chains']):
+            chain_length = chain_config['length']
+            direction = chain_config['direction']
+            overlap_chain_idx = chain_config['overlap_chain_idx']
+            
+            if overlap_chain_idx is None:
+                start_row = chain_config['start_row']
+                start_col = chain_config['start_col']
+                
+                if direction == 'horizontal':
+                    positions = [(start_row, start_col + i) for i in range(chain_length)]
+                else:
+                    positions = [(start_row + i, start_col) for i in range(chain_length)]
+            else:
+                parent_chain = chains[overlap_chain_idx]
+                overlap_at_parent = chain_config['overlap_at_parent']
+                overlap_at_self = chain_config['overlap_at_self']
+                
+                overlap_pos = parent_chain['positions'][overlap_at_parent]
+                
+                if direction == 'horizontal':
+                    start_col = overlap_pos[1] - overlap_at_self
+                    row = overlap_pos[0]
+                    positions = [(row, start_col + i) for i in range(chain_length)]
+                else:
+                    start_row = overlap_pos[0] - overlap_at_self
+                    col = overlap_pos[1]
+                    positions = [(start_row + i, col) for i in range(chain_length)]
+            
+            if overlap_chain_idx is None:
+                word_chain = self._generate_first_chain(chain_length, connection_types, category)
+            else:
+                parent_chain = chains[overlap_chain_idx]
+                overlap_at_parent = chain_config['overlap_at_parent']
+                overlap_at_self = chain_config['overlap_at_self']
+                seed_word = parent_chain['words'][overlap_at_parent]
+                
+                word_chain = self._generate_chain_with_seed(
+                    chain_length, connection_types, category, seed_word, overlap_at_self
+                )
+            
+            chains.append({
+                'words': word_chain['words'],
+                'connections': word_chain['connections'],
+                'positions': positions,
+                'direction': direction
+            })
+            
+            for pos in positions:
+                occupied_cells.add(pos)
+        
+        cells_dict = {}
+        for chain in chains:
+            for idx, pos in enumerate(chain['positions']):
+                if pos not in cells_dict:
+                    cells_dict[pos] = Cell(
+                        row=pos[0],
+                        col=pos[1],
+                        word=chain['words'][idx],
+                    )
+        
+        for chain in chains:
+            for i in range(len(chain['positions']) - 1):
+                from_pos = chain['positions'][i]
+                to_pos = chain['positions'][i + 1]
+                
+                all_connections.append(ConnectionBetweenCells(
+                    from_cell=from_pos,
+                    to_cell=to_pos,
+                    connection=chain['connections'][i]
+                ))
+        
+        return GameBoard(
+            rows=grid_size,
+            cols=grid_size,
+            cells=list(cells_dict.values()),
+            connections=all_connections,
+            category=category
+        )
+    
+    def _generate_board_random(
+        self,
+        num_chains: int,
+        connection_types: Optional[List[str]],
+        category: Optional[str],
+        grid_size: int
+    ) -> GameBoard:
+        """Generate a board with random positioning"""
+        chain_length = 6
+        
+        chains = []
+        occupied_cells: Set[Tuple[int, int]] = set()
+        all_connections = []
+        
+        first_chain = self._generate_first_chain(chain_length, connection_types, category)
+
+        print(first_chain)
+        
+        start_row = random.randint(0, grid_size - 1)
+        start_col = random.randint(0, grid_size - chain_length)
+        chains.append({
+            'words': first_chain['words'],
+            'connections': first_chain['connections'],
+            'positions': [(start_row, start_col + i) for i in range(chain_length)],
+            'direction': 'horizontal'
+        })
+        
+        for pos in chains[0]['positions']:
+            occupied_cells.add(pos)
+
+        chain_idx = 0
+        
+        while chain_idx < num_chains:
+            parent_chain = random.choice(chains)
+            overlap_idx = random.randint(0, len(parent_chain['positions']) - 1)
+            overlap_pos = parent_chain['positions'][overlap_idx]
+            overlap_word = parent_chain['words'][overlap_idx]
+            
+            direction = 'vertical' if parent_chain['direction'] == 'horizontal' else 'horizontal'
+            
+            positions = self._calculate_positions(
+                overlap_pos, overlap_idx, chain_length, direction, occupied_cells, grid_size
+            )
+            
+            if positions:
+                new_chain = self._generate_chain_with_seed(
+                    chain_length, connection_types, category, overlap_word, overlap_idx
+                )
+
+                chains.append({
+                    'words': new_chain['words'],
+                    'connections': new_chain['connections'],
+                    'positions': positions,
+                    'direction': direction
+                })
+                
+                for pos in positions:
+                    occupied_cells.add(pos)
+
+                chain_idx += 1
+        
+        cells_dict = {}
+        for chain in chains:
+            for idx, pos in enumerate(chain['positions']):
+                if pos not in cells_dict:
+                    cells_dict[pos] = Cell(
+                        row=pos[0],
+                        col=pos[1],
+                        word=chain['words'][idx],
+                    )
+        
+        for chain in chains:
+            for i in range(len(chain['positions']) - 1):
+                from_pos = chain['positions'][i]
+                to_pos = chain['positions'][i + 1]
+                
+                all_connections.append(ConnectionBetweenCells(
+                    from_cell=from_pos,
+                    to_cell=to_pos,
+                    connection=chain['connections'][i]
+                ))
+        
+        return GameBoard(
+            rows=grid_size,
+            cols=grid_size,
+            cells=list(cells_dict.values()),
+            connections=all_connections,
+            category=category
+        )
+    
+    def _generate_first_chain(
+        self,
+        length: int,
+        connection_types: Optional[List[str]],
+        category: Optional[str]
+    ) -> dict:
+        """Generate a single word chain"""
+        words = []
+        connections = []
+        
+        current_word = self._generate_word_start(category)
+        words.append(current_word)
+        
+        for _ in range(length - 1):
+            if connection_types:
+                connection_type = random.choice(connection_types)
+                next_word = self._generate_word_with_connection(current_word, connection_type, category)
+            else:
+                next_word, connection_type = self._generate_word_and_connection(current_word, category)
+            
+            connections.append(connection_type)
+            words.append(next_word)
+            current_word = next_word
+        
+        return {'words': words, 'connections': connections}
+    
+    def _generate_chain_with_seed(
+        self,
+        length: int,
+        connection_types: Optional[List[str]],
+        category: Optional[str],
+        seed_word: str,
+        seed_position: int
+    ) -> dict:
+        """Generate chain with seed word at specific position"""
+        words = [None] * length
+        connections = [None] * (length - 1)
+        words[seed_position] = seed_word
+        
+        for i in range(seed_position, length - 1):
+            if connection_types:
+                connection_type = random.choice(connection_types)
+                next_word = self._generate_word_with_connection(words[i], connection_type, category)
+            else:
+                next_word, connection_type = self._generate_word_and_connection(words[i], category)
+
+            connections[i] = connection_type
+            words[i + 1] = next_word
+        
+        for i in range(seed_position - 1, -1, -1):
+            if connection_types:
+                connection_type = random.choice(connection_types)
+                prev_word = self._generate_word_with_connection(words[i + 1], connection_type, category)
+            else:
+                prev_word, connection_type = self._generate_word_and_connection(words[i + 1], category)
+
+            connections[i] = connection_type
+            words[i] = prev_word
+        
+        return {'words': words, 'connections': connections}
+    
+    def _generate_word_start(self, category: Optional[str]) -> str:
+        """Generate a starting word"""
+        category_text = f" in the category '{category}'" if category else ""
+        prompt = f"Generate a single common English word{category_text}. Respond with only the word, nothing else."
+        
+        try:
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You are a word association expert. Always respond with exactly one word."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.8,
+                max_tokens=20
+            )
+            
+            word = response.choices[0].message.content.strip().lower()
+            word = word.split()[0] if word else "default"
+            return word
+        except Exception as e:
+            return f"word{random.randint(1, 1000)}"
+    
+    def _generate_word_with_connection(
+        self, 
+        source_word: str, 
+        connection_type: str, 
+        category: Optional[str]
+    ) -> str:
+        """Generate a word connected to source_word via connection_type"""
+        category_text = f" (in category: {category})" if category else ""
+        prompt = f"Given the word '{source_word}', generate a single word connected to it through a {connection_type} relationship{category_text}. Respond with only the word, nothing else."
+        
+        return "x"
+
+        try:
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You are a word association expert. Always respond with exactly one word."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.8,
+                max_tokens=20
+            )
+            
+            word = response.choices[0].message.content.strip().lower()
+            word = word.split()[0] if word else "default"
+            return word
+        except Exception as e:
+            return f"word{random.randint(1, 1000)}"
+    
+    def _generate_word_and_connection(
+        self, 
+        source_word: str, 
+        category: Optional[str]
+    ) -> Tuple[str, str]:
+        """Generate both a connected word and the connection type"""
+        category_text = f" (in category: {category})" if category else ""
+        prompt = f"""
+            Given the word '{source_word}', generate a related word and describe their connection{category_text}.
+
+            Return ONLY in this JSON format:
+            {{"word": "the_related_word", "connection": "type_of_connection"}}
+
+            Example: {{"word": "cat", "connection": "category"}}
+        """
+
+        return "x", "x"
+        
+        try:
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You are a word association expert. Always respond with valid JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.8,
+                max_tokens=100,
+                response_format={"type": "json_object"}
+            )
+            
+            import json
+            result = json.loads(response.choices[0].message.content)
+            word = result.get("word", "default").strip().lower()
+            connection = result.get("connection", "association").strip().lower()
+            return word, connection
+        except Exception as e:
+            return f"word{random.randint(1, 1000)}", "association"
+    
+    def _calculate_positions(
+        self,
+        overlap_pos: Tuple[int, int],
+        overlap_idx: int,
+        chain_length: int,
+        direction: str,
+        occupied: Set[Tuple[int, int]],
+        grid_size: int
+    ) -> Optional[List[Tuple[int, int]]]:
+        """Calculate positions for a chain within grid bounds"""
+        
+        def is_valid_position(positions: List[Tuple[int, int]]) -> bool:
+            """Check if all positions are within grid bounds"""
+            for row, col in positions:
+                if row < 0 or row >= grid_size or col < 0 or col >= grid_size:
+                    return False
+            return True
+        
+        positions = []
+        
+        if direction == 'horizontal':
+            start_col = overlap_pos[1] - overlap_idx
+            row = overlap_pos[0]
+            
+            for i in range(chain_length):
+                pos = (row, start_col + i)
+                positions.append(pos)
+            
+            conflicts = [p for p in positions if p in occupied and p != overlap_pos]
+            if conflicts or not is_valid_position(positions):
+                for offset in [1, -1, 2, -2, 3, -3, 4, -4, 5, -5]:
+                    row = overlap_pos[0] + offset
+                    positions = [(row, start_col + i) for i in range(chain_length)]
+                    conflicts = [p for p in positions if p in occupied and p != overlap_pos]
+                    if not conflicts and is_valid_position(positions):
+                        break
+                else:
+                    return None
+        else:
+            start_row = overlap_pos[0] - overlap_idx
+            col = overlap_pos[1]
+            
+            for i in range(chain_length):
+                pos = (start_row + i, col)
+                positions.append(pos)
+            
+            conflicts = [p for p in positions if p in occupied and p != overlap_pos]
+            if conflicts or not is_valid_position(positions):
+                for offset in [1, -1, 2, -2, 3, -3, 4, -4, 5, -5]:
+                    col = overlap_pos[1] + offset
+                    positions = [(start_row + i, col) for i in range(chain_length)]
+                    conflicts = [p for p in positions if p in occupied and p != overlap_pos]
+                    if not conflicts and is_valid_position(positions):
+                        break
+                else:
+                    return None
+        
+        return positions
