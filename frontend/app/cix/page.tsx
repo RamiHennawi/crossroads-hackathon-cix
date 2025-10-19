@@ -37,18 +37,18 @@ const gameData: GameData = {
     { "row": 6, "col": 7, "word": "x" },
     { "row": 2, "col": 6, "word": "x" },
     { "row": 3, "col": 6, "word": "x" },
-    { "row": 4, "col": 6, "word": "x", is_given: true },
+    { "row": 4, "col": 6, "word": "kotka", is_given: true },
     { "row": 5, "col": 6, "word": "x" },
     { "row": 6, "col": 6, "word": "x" },
     { "row": 7, "col": 6, "word": "x" },
-    { "row": 3, "col": 5, "word": "x", is_given: true },
+    { "row": 3, "col": 5, "word": "kotka", is_given: true },
     { "row": 3, "col": 6, "word": "x" },
     { "row": 3, "col": 7, "word": "x" },
     { "row": 3, "col": 8, "word": "x" },
     { "row": 3, "col": 9, "word": "x" },
     { "row": 3, "col": 10, "word": "x" },
     { "row": 5, "col": 4, "word": "x" },
-    { "row": 6, "col": 4, "word": "x", is_given: true },
+    { "row": 6, "col": 4, "word": "hladilnik", is_given: true },
     { "row": 7, "col": 4, "word": "x" },
     { "row": 8, "col": 4, "word": "x" },
     { "row": 9, "col": 4, "word": "x" },
@@ -152,6 +152,12 @@ export default function CixGame() {
     setSelectedCell(null);
   };
 
+  const handleClear = () => {
+    setGuessedWords(new Map());
+    setInputText('');
+    setSelectedCell(null);
+  };
+
   // Keyboard panning support
   const handleKeyDown = (e: React.KeyboardEvent) => {
     // Prevent default for arrow keys to avoid page scroll
@@ -168,7 +174,13 @@ export default function CixGame() {
 
   return (
     <div 
-      className="min-h-screen bg-black relative overflow-hidden" 
+      className="min-h-screen relative overflow-hidden" 
+      style={{ 
+        backgroundImage: 'url(/images/default_bg.jpg)', 
+        backgroundSize: 'cover', 
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }}
       tabIndex={0}
       onKeyDown={handleKeyDown}
     >
@@ -202,36 +214,42 @@ export default function CixGame() {
             <div className="fixed top-6 left-6 flex flex-col gap-2 z-20 pointer-events-none">
               <button
                 onClick={() => zoomIn()}
-                className="w-10 h-10 bg-transparent border-2 border-gray-300 rounded-lg transition-colors shadow-lg flex items-center justify-center text-xl font-bold pointer-events-auto cursor-pointer"
+                className="w-10 h-10 bg-transparent border-2 border-gray-700 rounded-lg transition-colors shadow-lg flex items-center justify-center text-xl font-bold pointer-events-auto cursor-pointer background-blur-sm"
                 title="Zoom In (or use Scroll Wheel)"
               >
-                +
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
               </button>
               <button
                 onClick={() => zoomOut()}
-                className="w-10 h-10 bg-transparent border-2 border-gray-300 rounded-lg transition-colors shadow-lg flex items-center justify-center text-xl font-bold pointer-events-auto cursor-pointer"
+                className="w-10 h-10 bg-transparent border-2 border-gray-700 rounded-lg transition-colors shadow-lg flex items-center justify-center text-xl font-bold pointer-events-auto cursor-pointer background-blur-sm"
                 title="Zoom Out (or use Scroll Wheel)"
               >
-                −
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14" />
+                </svg>
               </button>
               <button
                 onClick={() => resetTransform()}
-                className="w-10 h-10 bg-transparent border-2 border-gray-300 rounded-lg transition-colors shadow-lg flex items-center justify-center text-sm pointer-events-auto cursor-pointer"
+                className="w-10 h-10 bg-transparent border-2 border-gray-700 rounded-lg transition-colors shadow-lg flex items-center justify-center text-sm pointer-events-auto cursor-pointer background-blur-sm"
                 title="Reset Zoom & Position"
               >
-                ⟲
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                </svg>
               </button>
             </div>
             
             {/* Instructions */}
-            <div className="fixed top-6 left-20 bg-gray-900/90 backdrop-blur-sm border border-gray-700 rounded-lg px-3 py-2 text-xs text-gray-300 shadow-lg pointer-events-none z-20">
+            <div className="fixed top-6 left-20 bg-transparent backdrop-blur-sm border border-gray-700 rounded-lg px-3 py-2 text-xs text-gray-300 shadow-lg pointer-events-none z-20 backdrop-blur-sm">
               <div>🖱️ Click & drag to move</div>
               <div>🔍 Scroll to zoom</div>
             </div>
 
             {/* Hover Info - Above search field */}
             {hoverInfo && (
-              <div className="fixed bottom-44 right-6 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-sm text-white shadow-lg pointer-events-none z-20">
+              <div className="fixed bottom-46 right-6 bg-transparent border-2 border-gray-700 rounded-lg px-4 py-2 text-sm text-white shadow-lg pointer-events-none z-20 backdrop-blur-sm">
                 <span className="font-semibold text-emerald-400">{hoverInfo.type === 'node' ? 'Node' : 'Connection'}:</span> {hoverInfo.value}
               </div>
             )}
@@ -243,7 +261,7 @@ export default function CixGame() {
             >
               <div className="w-full h-full flex items-center justify-center p-8">
                 <div 
-                  className="relative bg-black"
+                  className="relative bg-transparent"
                   style={{ width: `${gridWidth}px`, height: `${gridHeight}px` }}
                 >
                   <svg width={gridWidth} height={gridHeight} className="absolute inset-0">
@@ -334,7 +352,7 @@ export default function CixGame() {
                             cx={(cell.col + 0.5) * cellSize}
                             cy={(cell.row + 0.5) * cellSize}
                             r={nodeRadius}
-                            fill={isSelected ? 'rgba(16, 185, 129, 0.2)' : (given ? 'rgba(16, 185, 129, 0.1)' : 'black')}
+                            fill={isSelected ? 'rgba(16, 185, 129, 0.2)' : (given ? 'rgba(16, 185, 129, 0.3)' : 'rgba(0, 0, 0, 0.75)')}
                             stroke={given ? '#10b981' : 'white'}
                             strokeWidth={5}
                             opacity={active ? 1 : 0.2}
@@ -368,7 +386,7 @@ export default function CixGame() {
             {/* Sticky Controls at Bottom Right */}
             <div className="fixed bottom-6 right-6 flex flex-col gap-4 w-96 z-20 pointer-events-none">
               {/* Input Field */}
-              <div className="bg-black-900 border-2 border-gray-700 shadow-lg p-4 rounded-lg pointer-events-auto">
+              <div className="bg-transparent border-2 border-gray-700 shadow-lg p-4 rounded-lg pointer-events-auto backdrop-blur-sm bg-black/80">
                 {selectedCell ? (
                   <div className="flex flex-col gap-2">
                     <div className="flex gap-2">
@@ -379,14 +397,16 @@ export default function CixGame() {
                         onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                         placeholder="Type your guess..."
                         disabled={isGiven(selectedCell.row, selectedCell.col)}
-                        className="flex-1 px-4 py-2 bg-black border border-gray-700 rounded text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
+                        className="flex-1 px-4 py-2 bg-black border border-gray-700 rounded text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/60 disabled:opacity-50"
                       />
                       <button
                         onClick={handleSend}
                         disabled={isGiven(selectedCell.row, selectedCell.col)}
-                        className="px-6 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-2 py-2 bg-emerald-500/40 border-2 border-emerald-400/80 text-white rounded hover:bg-emerald-700/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm cursor-pointer"
                       >
-                        →
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                        </svg>
                       </button>
                     </div>
                   </div>
@@ -400,17 +420,18 @@ export default function CixGame() {
               {/* Buttons */}
               <div className="flex gap-3 pointer-events-auto">
                 <button
-                  className="flex-1 px-4 py-3 bg-black text-white rounded-lg transition-all duration-150 shadow-lg border border-gray-700 cursor-pointer transform hover:scale-105 hover:bg-[#181a1b] hover:opacity-90"
+                  className="flex-1 px-4 py-3 bg-transparent text-white rounded-lg transition-all duration-150 shadow-lg border-2 border-gray-700 cursor-pointer transform hover:scale-103 hover:backdrop-blur-md backdrop-blur-sm"
                 >
                   Hint
                 </button>
                 <button
-                  className="flex-1 px-4 py-3 bg-black text-white rounded-lg transition-all duration-150 shadow-lg border border-gray-700 cursor-pointer transform hover:scale-105 hover:bg-[#181a1b] hover:opacity-90"
+                  onClick={handleClear}
+                  className="flex-1 px-4 py-3 bg-transparent text-white rounded-lg transition-all duration-150 shadow-lg border-2 border-gray-700 cursor-pointer transform hover:scale-103 hover:backdrop-blur-md backdrop-blur-sm"
                 >
                   Clear
                 </button>
                 <button
-                  className="flex-1 px-4 py-3 bg-black text-white rounded-lg transition-all duration-150 shadow-lg border border-gray-700 cursor-pointer transform hover:scale-105 hover:bg-[#181a1b] hover:opacity-90"
+                  className="flex-1 px-4 py-3 bg-transparent text-white rounded-lg transition-all duration-150 shadow-lg border-2 border-gray-700 cursor-pointer transform hover:scale-103 hover:backdrop-blur-md backdrop-blur-sm"
                 >
                   Submit
                 </button>
