@@ -76,7 +76,7 @@ export default function CixGame() {
             { row: 2, col: 0, word: 'child', is_given: false },
             { row: 2, col: 1, word: 'youth', is_given: false },
             { row: 2, col: 3, word: 'adult', is_given: false },
-            { row: 2, col: 4, word: 'elder', is_given: false },
+            { row: 2, col: 4, word: 'elder', is_given: true },
             { row: 2, col: 5, word: 'senior', is_given: false },
           ],
           connections: [
@@ -97,7 +97,7 @@ export default function CixGame() {
             // Chain 3 connections (5 connections for 6 words)
             { from_cell: [2, 0], to_cell: [2, 1], connection: 'grows into' },
             { from_cell: [2, 1], to_cell: [2, 2], connection: 'becomes' },
-            { from_cell: [2, 2], to_cell: [2, 3], connection: 'stage of life' },
+            { from_cell: [2, 2], to_cell: [2, 3], connection: 'life stage' },
             { from_cell: [2, 3], to_cell: [2, 4], connection: 'ages into' },
             { from_cell: [2, 4], to_cell: [2, 5], connection: 'synonym' },
           ],

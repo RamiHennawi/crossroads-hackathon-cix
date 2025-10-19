@@ -107,7 +107,7 @@ export default function FrontPage() {
         {step === 1 && (
           <div className="w-full text-center flex flex-col justify-center items-center">
             <h1 className="text-5xl md:text-5xl font-black text-white mb-8 tracking-wider">
-              &gt; ENTER LANGUAGE_
+              &gt; SELECT LANGUAGE_
             </h1>
             <div className="w-3/4 backdrop-blur-sm border-2 border-white/30 rounded-lg shadow-[0_0_15px_rgba(255,255,255,0.15)] p-6">
               <select
