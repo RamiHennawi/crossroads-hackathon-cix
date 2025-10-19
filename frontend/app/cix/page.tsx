@@ -3,13 +3,19 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
-import { generateBoard, validateConnection, type Cell, type Connection, type GameBoard } from '../services/api';
+import { generateBoard, validateConnection, generateHint, type Cell, type Connection, type GameBoard } from '../services/api';
 
 interface ValidationPopup {
   id: number;
   message: string;
   type: 'success' | 'error';
   connection: string;
+}
+
+interface HintPopup {
+  id: number;
+  word: string;
+  hint: string;
 }
 
 interface WeakPoint {
@@ -31,19 +37,73 @@ export default function CixGame() {
   const [weakPoints, setWeakPoints] = useState<WeakPoint[]>([]);
   const [validatingConnection, setValidatingConnection] = useState(false);
   const [validatedConnections, setValidatedConnections] = useState<Set<string>>(new Set());
+  const [hintPopups, setHintPopups] = useState<HintPopup[]>([]);
+  const [generatingHint, setGeneratingHint] = useState(false);
 
   // Load game board on mount
   useEffect(() => {
     const loadGame = async () => {
       try {
-        const configStr = localStorage.getItem('gameConfig');
-        if (!configStr) {
-          router.push('/setup');
-          return;
-        }
+        // const configStr = localStorage.getItem('gameConfig');
+        // if (!configStr) {
+        //   router.push('/setup');
+        //   return;
+        // }
 
-        const config = JSON.parse(configStr);
-        const board = await generateBoard(config);
+        // const config = JSON.parse(configStr);
+        // const board = await generateBoard(config);
+ 
+        const board: GameBoard = {
+          rows: 6,
+          cols: 6,
+          cells: [
+            // Chain 1 - horizontal (row 0)
+            { row: 0, col: 0, word: 'cat', is_given: true },
+            { row: 0, col: 1, word: 'dog', is_given: false },
+            { row: 0, col: 2, word: 'pet', is_given: false },
+            { row: 0, col: 3, word: 'animal', is_given: false },
+            { row: 0, col: 4, word: 'mammal', is_given: false },
+            { row: 0, col: 5, word: 'creature', is_given: false },
+            
+            // Chain 2 - vertical (col 2), overlaps with Chain 1 at (0,2) "pet"
+            { row: 1, col: 2, word: 'owner', is_given: false },
+            { row: 2, col: 2, word: 'person', is_given: true },
+            { row: 3, col: 2, word: 'human', is_given: false },
+            { row: 4, col: 2, word: 'being', is_given: false },
+            { row: 5, col: 2, word: 'life', is_given: false },
+            
+            // Chain 3 - horizontal (row 2), overlaps with Chain 2 at (2,2) "person"
+            { row: 2, col: 0, word: 'child', is_given: false },
+            { row: 2, col: 1, word: 'youth', is_given: false },
+            { row: 2, col: 3, word: 'adult', is_given: false },
+            { row: 2, col: 4, word: 'elder', is_given: false },
+            { row: 2, col: 5, word: 'senior', is_given: false },
+          ],
+          connections: [
+            // Chain 1 connections (5 connections for 6 words)
+            { from_cell: [0, 0], to_cell: [0, 1], connection: 'both are fluffy' },
+            { from_cell: [0, 1], to_cell: [0, 2], connection: 'type of' },
+            { from_cell: [0, 2], to_cell: [0, 3], connection: 'category' },
+            { from_cell: [0, 3], to_cell: [0, 4], connection: 'example' },
+            { from_cell: [0, 4], to_cell: [0, 5], connection: 'synonym' },
+            
+            // Chain 2 connections (5 connections for 6 words)
+            { from_cell: [0, 2], to_cell: [1, 2], connection: 'has' },
+            { from_cell: [1, 2], to_cell: [2, 2], connection: 'is a' },
+            { from_cell: [2, 2], to_cell: [3, 2], connection: 'synonym' },
+            { from_cell: [3, 2], to_cell: [4, 2], connection: 'type of' },
+            { from_cell: [4, 2], to_cell: [5, 2], connection: 'characteristic' },
+            
+            // Chain 3 connections (5 connections for 6 words)
+            { from_cell: [2, 0], to_cell: [2, 1], connection: 'grows into' },
+            { from_cell: [2, 1], to_cell: [2, 2], connection: 'becomes' },
+            { from_cell: [2, 2], to_cell: [2, 3], connection: 'stage of life' },
+            { from_cell: [2, 3], to_cell: [2, 4], connection: 'ages into' },
+            { from_cell: [2, 4], to_cell: [2, 5], connection: 'synonym' },
+          ],
+          category: 'General',
+        };
+        
         setGameData(board);
         setLoading(false);
       } catch (err) {
@@ -56,19 +116,34 @@ export default function CixGame() {
     loadGame();
   }, [router]);
 
-  // Auto-remove popups after 3 seconds
+  // Auto-remove validation popups after 1 second
   useEffect(() => {
     if (validationPopups.length > 0) {
       const timer = setTimeout(() => {
         setValidationPopups(prev => prev.slice(1));
-      }, 3000);
+      }, 1000);
       return () => clearTimeout(timer);
     }
   }, [validationPopups]);
 
+  // Auto-remove hint popups after 8 seconds (longer since they have more content)
+  useEffect(() => {
+    if (hintPopups.length > 0) {
+      const timer = setTimeout(() => {
+        setHintPopups(prev => prev.slice(1));
+      }, 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [hintPopups]);
+
   const addPopup = (message: string, type: 'success' | 'error', connection: string) => {
     const id = Date.now();
     setValidationPopups(prev => [...prev, { id, message, type, connection }]);
+  };
+
+  const addHintPopup = (word: string, hint: string) => {
+    const id = Date.now();
+    setHintPopups(prev => [...prev, { id, word, hint }]);
   };
 
   const getCellWord = (row: number, col: number): string => {
@@ -101,12 +176,25 @@ export default function CixGame() {
   const isNodeActive = (row: number, col: number): boolean => {
     if (hasValue(row, col)) return true;
     
-    const adjacentCells = [
-      [row - 1, col], [row + 1, col],
-      [row, col - 1], [row, col + 1]
-    ];
+    if (!gameData) return false;
     
-    return adjacentCells.some(([r, c]) => hasValue(r, c));
+    // Check if there's an actual connection from this cell to a cell with a value
+    const hasConnectionToPopulated = gameData.connections.some(conn => {
+      const [fromRow, fromCol] = conn.from_cell;
+      const [toRow, toCol] = conn.to_cell;
+      
+      // Check if this is one endpoint of the connection and the other endpoint has a value
+      if (fromRow === row && fromCol === col && hasValue(toRow, toCol)) {
+        return true;
+      }
+      if (toRow === row && toCol === col && hasValue(fromRow, fromCol)) {
+        return true;
+      }
+      
+      return false;
+    });
+    
+    return hasConnectionToPopulated;
   };
 
   const isConnectionActive = (conn: Connection): boolean => {
@@ -151,6 +239,34 @@ export default function CixGame() {
     setSelectedCell(null);
     setWeakPoints([]);
     setValidatedConnections(new Set());
+  };
+
+  const handleGetHint = async () => {
+    if (!selectedCell || !gameData) return;
+    
+    // Get the actual target word from the game board (the correct answer)
+    const cell = gameData.cells.find(c => c.row === selectedCell.row && c.col === selectedCell.col);
+    if (!cell || !cell.word) {
+      addHintPopup('Error', 'No target word found for this cell!');
+      return;
+    }
+
+    const targetWord = cell.word; // This is the correct answer, not the user's guess
+
+    setGeneratingHint(true);
+    
+    try {
+      const configStr = localStorage.getItem('gameConfig');
+      const config = configStr ? JSON.parse(configStr) : { language: 'English', level: 'B1' };
+      
+      const result = await generateHint(targetWord, config.language || 'English', config.level || 'B1');
+      addHintPopup(result.word, result.hint);
+    } catch (err) {
+      console.error('Failed to generate hint:', err);
+      addHintPopup(targetWord, 'Failed to generate hint. Please try again.');
+    } finally {
+      setGeneratingHint(false);
+    }
   };
 
   // Validate a single connection
@@ -290,7 +406,7 @@ export default function CixGame() {
     <div 
       className="min-h-screen relative overflow-hidden" 
       style={{ 
-        backgroundImage: 'url(/images/default_bg.jpg)', 
+        backgroundImage: 'url(/images/clean_bg.jpg)', 
         backgroundSize: 'cover', 
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat'
@@ -382,25 +498,43 @@ export default function CixGame() {
             )}
 
             {/* Validation Popups */}
-            <div className="fixed top-20 right-6 z-30 pointer-events-none space-y-2">
+            <div className="fixed top-20 right-6 z-30 pointer-events-none space-y-1">
               {validationPopups.map((popup) => (
                 <div
                   key={popup.id}
-                  className={`px-4 py-3 rounded-lg shadow-lg border-2 backdrop-blur-sm animate-slide-in ${
+                  className={`px-2 py-1.5 rounded-md shadow-lg border backdrop-blur-sm animate-slide-in ${
                     popup.type === 'success' 
                       ? 'bg-green-500/20 border-green-500/50 text-green-100' 
                       : 'bg-red-500/20 border-red-500/50 text-red-100'
                   }`}
                 >
-                  <div className="font-semibold">{popup.message}</div>
-                  <div className="text-xs mt-1 opacity-75">{popup.connection}</div>
+                  <div className="font-semibold text-sm">{popup.message}</div>
+                  <div className="text-xs opacity-75">{popup.connection}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Hint Popups */}
+            <div className="fixed top-20 left-6 z-30 pointer-events-none space-y-2 max-w-md">
+              {hintPopups.map((popup) => (
+                <div
+                  key={popup.id}
+                  className="px-4 py-3 rounded-lg shadow-lg border-2 backdrop-blur-sm animate-slide-in bg-blue-500/20 border-blue-500/50 text-blue-100"
+                >
+                  <div className="font-semibold flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.383a14.406 14.406 0 0 1-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 1 0-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />
+                    </svg>
+                    Hint: {popup.word}
+                  </div>
+                  <div className="text-sm mt-2 text-blue-50">{popup.hint}</div>
                 </div>
               ))}
             </div>
 
             {/* Hover Info */}
             {hoverInfo && (
-              <div className="fixed bottom-48 right-6 bg-black/90 border-2 border-gray-700 rounded-lg px-4 py-2 text-sm text-white shadow-lg pointer-events-none z-20 backdrop-blur-sm">
+              <div className="fixed bottom-52 right-6 bg-black/90 border-2 border-gray-700 rounded-lg px-4 py-2 text-sm text-white shadow-lg pointer-events-none z-20 backdrop-blur-sm">
                 <span className="font-semibold text-yellow-400">{hoverInfo.type === 'node' ? 'Node' : 'Connection'}:</span> {hoverInfo.value}
               </div>
             )}
@@ -510,7 +644,7 @@ export default function CixGame() {
                             filter={given ? 'url(#holographicGlow)' : undefined}
                             className={active && !given ? "cursor-pointer hover:fill-yellow-900 transition-colors" : ""}
                             onClick={() => handleCellClick(cell.row, cell.col)}
-                            onMouseEnter={() => active && !given && setHoverInfo({ type: 'node', value: word || '???' })}
+                            onMouseEnter={() => active && word && setHoverInfo({ type: 'node', value: word })}
                             onMouseLeave={() => setHoverInfo(null)}
                           />
                           {word && (
@@ -573,6 +707,16 @@ export default function CixGame() {
                   className="flex-1 px-4 py-3 bg-black/80 text-white rounded-lg transition-all duration-150 shadow-lg border-2 border-gray-700 cursor-pointer transform hover:scale-105 backdrop-blur-sm"
                 >
                   Clear
+                </button>
+                <button
+                  onClick={handleGetHint}
+                  disabled={!selectedCell || generatingHint}
+                  className="flex-1 px-4 py-3 bg-blue-500/40 border-2 border-blue-400/80 text-white rounded-lg transition-all duration-150 shadow-lg cursor-pointer transform hover:scale-105 backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.383a14.406 14.406 0 0 1-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 1 0-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />
+                  </svg>
+                  {generatingHint ? 'Getting Hint...' : 'Hint'}
                 </button>
                 <button
                   onClick={handleValidateBoard}

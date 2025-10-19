@@ -128,3 +128,32 @@ export async function validateBoard(board: GameBoard): Promise<BoardValidationRe
   return await response.json();
 }
 
+export interface HintResult {
+  word: string;
+  hint: string;
+}
+
+export async function generateHint(
+  word: string,
+  language: string = "English",
+  languageLevel: string = "B1"
+): Promise<HintResult> {
+  const response = await fetch(`${API_BASE_URL}/api/hint/generate`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ 
+      word, 
+      language, 
+      language_level: languageLevel 
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to generate hint: ${response.statusText}`);
+  }
+
+  return await response.json();
+}
+

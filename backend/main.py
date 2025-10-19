@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 from models import (
     GenerateBoardRequest, ValidateConnectionRequest, ValidateBoardRequest,
-    GameBoard, ValidationResult, BoardValidationResult
+    GameBoard, ValidationResult, BoardValidationResult, HintRequest, HintResult
 )
 from game_logic import BoardGenerator
 from connection_validator import ConnectionValidator
@@ -69,6 +69,20 @@ def validate_board(request: ValidateBoardRequest):
     try:
         result = validator.validate_board(request.board)
         return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/hint/generate", response_model=HintResult)
+def generate_hint(request: HintRequest):
+    """Generate a hint for a word"""
+    try:
+        hint = board_generator.generate_hint(
+            word=request.word,
+            language=request.language,
+            language_level=request.language_level
+        )
+        return HintResult(word=request.word, hint=hint)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

@@ -22,7 +22,7 @@ export default function Home() {
             onClick={() => router.push('/setup')}
             className="px-9 py-2.5 text-[1.15rem] border-none bg-white text-black cursor-pointer tracking-[0.06em] font-bold outline-none transition-colors duration-150 hover:bg-neutral-300 rounded-[10px] transition-transform duration-150 hover:scale-105 shadow-lg"
           >
-            &gt; Begin
+            BEGIN
           </button>
         </div>
       </div>

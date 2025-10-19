@@ -60,3 +60,15 @@ class BoardValidationResult(BaseModel):
     is_valid: bool
     invalid_connections: List[dict] = []
 
+
+class HintRequest(BaseModel):
+    """Request to get a hint for a word"""
+    word: str
+    language: str = "English"
+    language_level: str = "B1"
+
+
+class HintResult(BaseModel):
+    """Result containing a hint for a word"""
+    word: str
+    hint: str

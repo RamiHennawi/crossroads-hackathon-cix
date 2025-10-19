@@ -11,6 +11,48 @@ class BoardGenerator:
     
     def __init__(self):
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    
+    def generate_hint(self, word: str, language: str = "English", language_level: str = "B1") -> str:
+        """Generate a helpful hint for a word (translation or information)"""
+        # If the word is in a foreign language, provide English translation and info
+        # Otherwise, provide interesting information or context about the word
+        
+        if language.lower() != "english":
+            prompt = f"""
+                The word '{word}' is in {language} (level: {language_level}).
+                Provide a helpful hint that includes:
+                1. English translation
+                2. A brief context or usage example
+                
+                Keep it concise (1-2 sentences) and helpful for learning.
+            """
+        else:
+            prompt = f"""
+                Provide a helpful hint for the word '{word}' suitable for {language_level} level learners.
+                Give interesting information such as:
+                - A simple definition
+                - Common usage context
+                - Related concepts
+                
+                Keep it concise (1-2 sentences) and educational.
+            """
+        
+        try:
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You are a helpful language learning assistant. Provide clear, concise hints."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7,
+                max_tokens=150
+            )
+            
+            hint = response.choices[0].message.content.strip()
+            return hint
+        except Exception as e:
+            print(f"Error generating hint: {e}")
+            return f"Hint unavailable for '{word}'. Try checking a dictionary!"
         
     def generate_board(
         self, 
@@ -49,6 +91,7 @@ class BoardGenerator:
         chains = []
         occupied_cells: Set[Tuple[int, int]] = set()
         all_connections = []
+        used_words: Set[str] = set()  # Track used words across all chains
         
         # Process each chain in the template
         for chain_idx, chain_config in enumerate(template['chains']):
@@ -82,6 +125,9 @@ class BoardGenerator:
             
             if overlap_chain_idx is None:
                 word_chain = self._generate_first_chain(chain_length, connection_types, category, language, language_level)
+                # Add words from first chain to used_words
+                for word in word_chain['words']:
+                    used_words.add(word.lower())
             else:
                 parent_chain = chains[overlap_chain_idx]
                 overlap_at_parent = chain_config['overlap_at_parent']
@@ -89,7 +135,7 @@ class BoardGenerator:
                 seed_word = parent_chain['words'][overlap_at_parent]
                 
                 word_chain = self._generate_chain_with_seed(
-                    chain_length, connection_types, category, seed_word, overlap_at_self, language, language_level
+                    chain_length, connection_types, category, seed_word, overlap_at_self, language, language_level, used_words
                 )
             
             chains.append({
@@ -169,8 +215,13 @@ class BoardGenerator:
         chains = []
         occupied_cells: Set[Tuple[int, int]] = set()
         all_connections = []
+        used_words: Set[str] = set()  # Track used words across all chains
         
         first_chain = self._generate_first_chain(chain_length, connection_types, category, language, language_level)
+        
+        # Add words from first chain to used_words
+        for word in first_chain['words']:
+            used_words.add(word.lower())
 
         print(first_chain)
         
@@ -224,7 +275,7 @@ class BoardGenerator:
                 
                 # Use the selected overlap_idx and overlap_word that correspond to the valid positions
                 new_chain = self._generate_chain_with_seed(
-                    chain_length, connection_types, category, selected_overlap_word, selected_overlap_idx, language, language_level
+                    chain_length, connection_types, category, selected_overlap_word, selected_overlap_idx, language, language_level, used_words
                 )
 
                 chains.append({
@@ -340,19 +391,34 @@ class BoardGenerator:
         """Generate a single word chain"""
         words = []
         connections = []
+        used_words = set()
         
         current_word = self._generate_word_start(category, language, language_level)
         words.append(current_word)
+        used_words.add(current_word.lower())
         
         for _ in range(length - 1):
-            if connection_types:
-                connection_type = random.choice(connection_types)
-                next_word = self._generate_word_with_connection(current_word, connection_type, category, language, language_level)
-            else:
-                next_word, connection_type = self._generate_word_and_connection(current_word, category, language, language_level)
+            max_attempts = 10
+            next_word = None
+            connection_type = None
+            
+            for attempt in range(max_attempts):
+                if connection_types:
+                    connection_type = random.choice(connection_types)
+                    next_word = self._generate_word_with_connection(current_word, connection_type, category, language, language_level, used_words)
+                else:
+                    next_word, connection_type = self._generate_word_and_connection(current_word, category, language, language_level, used_words)
+                
+                # Check if word is unique
+                if next_word.lower() not in used_words:
+                    break
+                elif attempt == max_attempts - 1:
+                    # Last attempt, just use it
+                    print(f"Warning: Could not find unique word after {max_attempts} attempts")
             
             connections.append(connection_type)
             words.append(next_word)
+            used_words.add(next_word.lower())
             current_word = next_word
         
         return {'words': words, 'connections': connections}
@@ -365,48 +431,78 @@ class BoardGenerator:
         seed_word: str,
         seed_position: int,
         language: str,
-        language_level: str
+        language_level: str,
+        used_words: Optional[Set[str]] = None
     ) -> dict:
         """Generate chain with seed word at specific position"""
+        if used_words is None:
+            used_words = set()
+        
         words = [None] * length
         connections = [None] * (length - 1)
         words[seed_position] = seed_word
         
+        # Generate forward from seed
         for i in range(seed_position, length - 1):
-            if connection_types:
-                connection_type = random.choice(connection_types)
-                next_word = self._generate_word_with_connection(words[i], connection_type, category, language, language_level)
-            else:
-                next_word, connection_type = self._generate_word_and_connection(words[i], category, language, language_level)
-
+            max_attempts = 10
+            next_word = None
+            connection_type = None
+            
+            for attempt in range(max_attempts):
+                if connection_types:
+                    connection_type = random.choice(connection_types)
+                    next_word = self._generate_word_with_connection(words[i], connection_type, category, language, language_level, used_words)
+                else:
+                    next_word, connection_type = self._generate_word_and_connection(words[i], category, language, language_level, used_words)
+                
+                # Check if word is unique
+                if next_word.lower() not in used_words:
+                    break
+                elif attempt == max_attempts - 1:
+                    print(f"Warning: Could not find unique word after {max_attempts} attempts")
+            
             connections[i] = connection_type
             words[i + 1] = next_word
+            used_words.add(next_word.lower())
         
+        # Generate backward from seed
         for i in range(seed_position - 1, -1, -1):
-            if connection_types:
-                connection_type = random.choice(connection_types)
-                prev_word = self._generate_word_with_connection(words[i + 1], connection_type, category, language, language_level)
-            else:
-                prev_word, connection_type = self._generate_word_and_connection(words[i + 1], category, language, language_level)
-
+            max_attempts = 10
+            prev_word = None
+            connection_type = None
+            
+            for attempt in range(max_attempts):
+                if connection_types:
+                    connection_type = random.choice(connection_types)
+                    prev_word = self._generate_word_with_connection(words[i + 1], connection_type, category, language, language_level, used_words)
+                else:
+                    prev_word, connection_type = self._generate_word_and_connection(words[i + 1], category, language, language_level, used_words)
+                
+                # Check if word is unique
+                if prev_word.lower() not in used_words:
+                    break
+                elif attempt == max_attempts - 1:
+                    print(f"Warning: Could not find unique word after {max_attempts} attempts")
+            
             connections[i] = connection_type
             words[i] = prev_word
+            used_words.add(prev_word.lower())
         
         return {'words': words, 'connections': connections}
     
     def _generate_word_start(self, category: Optional[str], language: str, language_level: str) -> str:
         """Generate a starting word"""
         category_text = f" in the category '{category}'" if category else ""
-        prompt = f"Generate a single common {language} word{category_text}. Keep it fit for speakers in {language_level} level. Respond with only the word, nothing else."
+        prompt = f"Generate a single UNIQUE common {language} word{category_text}. Keep it fit for speakers in {language_level} level. Be creative and varied! Respond with only the word, nothing else."
         
         try:
             response = self.client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "You are a word association expert. Always respond with exactly one word."},
+                    {"role": "system", "content": "You are a word association expert. Always respond with exactly one UNIQUE word. Be creative and avoid common words."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.8,
+                temperature=1.2,
                 max_tokens=20
             )
             
@@ -422,22 +518,29 @@ class BoardGenerator:
         connection_type: str, 
         category: Optional[str],
         language: str,
-        language_level: str
+        language_level: str,
+        used_words: Optional[Set[str]] = None
     ) -> str:
         """Generate a word connected to source_word via connection_type"""
+        if used_words is None:
+            used_words = set()
+            
         category_text = f" (in category: {category})" if category else ""
-        prompt = f"Given the word '{source_word}', generate a single {language} word connected to it through a {connection_type} relationship{category_text}. Keep it fit for speakers in {language_level} level. Respond with only the word, nothing else."
+        avoid_text = ""
+        if used_words:
+            avoid_list = list(used_words)[:20]  # Limit to avoid huge prompts
+            avoid_text = f"\n\nIMPORTANT: Do NOT use any of these already used words: {', '.join(avoid_list)}"
         
-        return "x"
+        prompt = f"Given the word '{source_word}', generate a single UNIQUE {language} word connected to it through a {connection_type} relationship{category_text}. Keep it fit for speakers in {language_level} level.{avoid_text}\n\nRespond with only the word, nothing else."
 
         try:
             response = self.client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "You are a word association expert. Always respond with exactly one word."},
+                    {"role": "system", "content": "You are a word association expert. Always respond with exactly one UNIQUE word that hasn't been used before."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.8,
+                temperature=1.0,
                 max_tokens=20
             )
             
@@ -452,30 +555,37 @@ class BoardGenerator:
         source_word: str, 
         category: Optional[str],
         language: str,
-        language_level: str
+        language_level: str,
+        used_words: Optional[Set[str]] = None
     ) -> Tuple[str, str]:
         """Generate both a connected word and the connection type"""
+        if used_words is None:
+            used_words = set()
+            
         category_text = f" (in category: {category})" if category else ""
+        avoid_text = ""
+        if used_words:
+            avoid_list = list(used_words)[:20]
+            avoid_text = f"\n\nIMPORTANT: The word must be UNIQUE. Do NOT use any of these already used words: {', '.join(avoid_list)}"
+        
         prompt = f"""
-            Given the word '{source_word}', generate a related {language} word and describe their connection{category_text}.
-            Keep them fit for speakers in {language_level} level.
+            Given the word '{source_word}', generate a UNIQUE related {language} word and describe their connection IN {language}{category_text}.
+            Keep them fit for speakers in {language_level} level.{avoid_text}
 
             Return ONLY in this JSON format:
-            {{"word": "the_related_word", "connection": "type_of_connection"}}
+            {{"word": "the_related_word", "connection": "type_of_connection_in_{language}"}}
 
-            Example: {{"word": "cat", "connection": "category"}}
+            The connection should be in {language}. Examples of connections: synonym, antonym, category, part-of, used-for, etc.
         """
-
-        return "x", "x"
         
         try:
             response = self.client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "You are a word association expert. Always respond with valid JSON."},
+                    {"role": "system", "content": f"You are a word association expert. Always respond with valid JSON. Generate UNIQUE words and connections in {language}."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.8,
+                temperature=1.0,
                 max_tokens=100,
                 response_format={"type": "json_object"}
             )
