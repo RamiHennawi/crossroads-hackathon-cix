@@ -40,7 +40,9 @@ def generate_board(request: GenerateBoardRequest):
             grid_size=request.grid_size,
             connection_types=request.connection_types,
             category=request.category,
-            use_templates=request.use_templates
+            use_templates=request.use_templates,
+            language=request.language,
+            language_level=request.language_level
         )
         return board
     except Exception as e:

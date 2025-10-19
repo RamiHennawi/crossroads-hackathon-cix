@@ -33,6 +33,8 @@ class GenerateBoardRequest(BaseModel):
     connection_types: Optional[List[str]] = None
     category: Optional[str] = None
     use_templates: Optional[bool] = Field(False, description="Use preloaded chain templates")
+    language: Optional[str] = None
+    language_level: Optional[str] = None
 
 
 class ValidateConnectionRequest(BaseModel):

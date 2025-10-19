@@ -9,10 +9,22 @@ export default function FrontPage() {
   const [language, setLanguage] = useState('');
   const [selectedLevel, setSelectedLevel] = useState('');
   const [selectedDifficulty, setSelectedDifficulty] = useState('');
-  const [streak] = useState(5);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [customCategory, setCustomCategory] = useState('');
+  const [choosingOther, setChoosingOther] = useState(false);
 
+  const languages = [
+    'English', 'Bulgarian', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 'Russian', 
+    'Chinese', 'Japanese', 'Korean', 'Arabic', 'Hindi', 'Dutch', 'Swedish', 
+    'Norwegian', 'Danish', 'Finnish', 'Polish', 'Czech', 'Hungarian', 'Greek', 
+    'Turkish','Thai', 'Vietnamese', 'Indonesian', 'Malay'
+  ];
   const levels = ['A1', 'A2', 'B1', 'B2', 'C1'];
   const difficulties = ['Easy', 'Medium', 'Hard'];
+  // Remove duplicate categories
+  const categories = Array.from(new Set([
+    'General', 'Science', 'Technology', 'History', 'Art', 'Culture', 'Food', 'Animals'
+  ]));
 
   const handleLanguageSubmit = () => {
     if (language.trim()) {
@@ -30,8 +42,34 @@ export default function FrontPage() {
     setStep(4);
   };
 
+  const handleCategorySelect = (category: string) => {
+    setSelectedCategory(category);
+    setStep(5);
+  };
+
+  const handleOtherCategory = () => {
+    setChoosingOther(true);
+    setCustomCategory('');
+  };
+
+  const handleCustomCategorySubmit = () => {
+    if (customCategory.trim()) {
+      setSelectedCategory(customCategory.trim());
+      setStep(5);
+      setChoosingOther(false);
+    }
+  };
+
   const handleStartGame = () => {
-    console.log('Starting game with:', { language, selectedLevel, selectedDifficulty });
+    // Save configuration to localStorage
+    const config = {
+      language,
+      level: selectedLevel,
+      difficulty: selectedDifficulty,
+      category: selectedCategory,
+    };
+    localStorage.setItem('gameConfig', JSON.stringify(config));
+    console.log('Starting game with:', config);
     router.push('/cix');
   };
 
@@ -72,13 +110,18 @@ export default function FrontPage() {
               &gt; ENTER LANGUAGE_
             </h1>
             <div className="w-3/4 backdrop-blur-sm border-2 border-white/30 rounded-lg shadow-[0_0_15px_rgba(255,255,255,0.15)] p-6">
-              <input
-                type="text"
+              <select
                 value={language}
                 onChange={(e) => setLanguage(e.target.value)}
-                placeholder="type_language_here..."
-                className="w-full px-3 py-4 text-md rounded-md border-2 border-white/40 text-white placeholder-white/50 focus:border-white focus:outline-none focus:ring-2 focus:ring-white/30 transition-all mb-4 font-mono"
-              />
+                className="custom-select w-full px-3 py-4 text-md rounded-md border-2 border-white/40 bg-transparent backdrop-blur-sm text-white focus:border-white focus:outline-none focus:ring-2 focus:ring-white/30 transition-all mb-4 font-mono"
+              >
+                <option value="">Select a language</option>
+                {languages.map((lang) => (
+                  <option key={lang} value={lang}>
+                    {lang}
+                  </option>
+                ))}
+              </select>
               <button
                 onClick={handleLanguageSubmit}
                 disabled={!language.trim()}
@@ -140,15 +183,80 @@ export default function FrontPage() {
           </div>
         )}
 
-        {/* Step 4: Start Game */}
+        {/* Step 4: Category Selection */}
         {step === 4 && (
+          <div className="w-full text-center flex flex-col justify-center items-center">
+            <h1 className="text-5xl md:text-5xl font-black text-white mb-8 tracking-wider">
+              &gt; SELECT CATEGORY_
+            </h1>
+            <div className="w-3/4 backdrop-blur-sm border-2 border-white/30 rounded-lg shadow-[0_0_15px_rgba(255,255,255,0.15)] p-6">
+              <p className="text-base text-white/70 mb-4">
+                [{language}] - [{selectedLevel}] - <span className="font-bold text-white">[{selectedDifficulty}]</span>
+              </p>
+              {!choosingOther ? (
+                <>
+                  <div className="grid grid-cols-3 gap-3 mb-4 max-h-60 overflow-auto p-0.5">
+                    {categories.map((category) => (
+                      <button
+                        key={category}
+                        onClick={() => handleCategorySelect(category)}
+                        className={`px-4 py-2 text-md md:text-xl font-bold bg-white/10 hover:bg-white/20 border-2 border-white/50 hover:border-white text-white rounded-lg shadow-[0_0_6px_rgba(255,255,255,0.15)] hover:shadow-[0_0_10px_rgba(255,255,255,0.25)] transform hover:scale-101 transition-all cursor-pointer uppercase`}
+                      >
+                        {category}
+                      </button>
+                    ))}
+                    <button
+                      onClick={handleOtherCategory}
+                      className="px-4 py-2 text-md md:text-xl font-bold bg-white/10 hover:bg-white/20 border-2 border-yellow-400/60 hover:border-yellow-200 text-yellow-200 rounded-lg shadow-[0_0_6px_rgba(255,255,0,0.12)] hover:shadow-[0_0_10px_rgba(255,255,0,0.18)] transform hover:scale-101 transition-all cursor-pointer uppercase"
+                    >
+                      Other...
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center space-y-4">
+                  <input
+                    type="text"
+                    value={customCategory}
+                    autoFocus
+                    maxLength={40}
+                    onChange={(e) => setCustomCategory(e.target.value)}
+                    placeholder="Type your category..."
+                    className="w-full px-3 py-3 text-md rounded-md border-2 border-white/40 text-white placeholder-white/50 focus:border-yellow-200 focus:outline-none focus:ring-2 focus:ring-yellow-100 transition-all font-mono bg-transparent"
+                  />
+                  <div className="flex gap-3 w-full">
+                    <button
+                      onClick={handleCustomCategorySubmit}
+                      disabled={!customCategory.trim()}
+                      className="flex-1 px-4 py-2 bg-white/10 hover:bg-white/20 border-2 border-white/50 hover:border-white text-white font-semibold rounded-md shadow-[0_0_8px_rgba(255,255,255,0.15)] hover:shadow-[0_0_12px_rgba(255,255,255,0.25)] transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      [ CONFIRM ]
+                    </button>
+                    <button
+                      onClick={() => {
+                        setChoosingOther(false);
+                        setCustomCategory('');
+                      }}
+                      className="px-4 py-2 border-2 border-yellow-200 hover:bg-yellow-800/20 text-yellow-200 font-semibold rounded-md transition-all"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Step 5: Start Game */}
+        {step === 5 && (
           <div className="w-full text-center flex flex-col justify-center items-center">
             <h1 className="text-5xl md:text-5xl font-black text-white mb-8 tracking-wider">
               &gt; SYSTEM READY_
             </h1>
             <div className="w-3/4 backdrop-blur-sm border-2 border-white/30 rounded-lg shadow-[0_0_15px_rgba(255,255,255,0.15)] p-6">
               <p className="text-base text-white/70 mb-4">
-                [{language}] - [{selectedLevel}] - <span className="font-bold text-white">[{selectedDifficulty}]</span>
+                [{language}] - [{selectedLevel}] - [{selectedDifficulty}] - <span className="font-bold text-white">[{selectedCategory}]</span>
               </p>
               <button
                 onClick={handleStartGame}
